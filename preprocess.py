@@ -2,12 +2,9 @@ import os
 from tkinter import SINGLE
 import music21 as m21
 import json
-import tensorflow
 
 
-from sympy import sequence
-
-KERN_DATASET_PATH = "deutschl/test"
+KERN_DATASET_PATH = "deutschl/erk"
 ACCEPTABLE_DURATIONS = [
     0.25,
     0.5,
@@ -26,9 +23,14 @@ SEQUENCE_LENGTH = 64
 def load_songs_in_kern(dataset_path):
     # go through all the files in the dataset and load them with music 21
     songs = []
+    count = 0
     for path, subdir, files in os.walk(dataset_path):
+        print(f"About to load {len(files)} files.")
         for file in files:
             if file[-3:] == "krn":
+                count+=1
+                if count%50==0:
+                    print(count)
                 song = m21.converter.parse(os.path.join(path, file))
                 songs.append(song)
 
@@ -119,7 +121,8 @@ def preprocess(dataset_path):
         song = transpose(song)
         # encode songs with music time series representation
         encoded_song = encode_song(song)
-        
+        if(i%50 == 0):
+            print("Encoded count: ", i)
         # save songs to text file
         save_path = os.path.join(SAVE_DIR, str(i))
         save_path += (".txt")
@@ -187,8 +190,10 @@ def convert_songs_to_int(songs):
         int_songs.append(mappings[symbol])
     return int_songs
 
+import keras.utils
+import numpy as np
 
-def generating_training_seqeunces(sequence_length):
+def generate_training_seqeunces(sequence_length):
     # load songs and map them to integers
     songs = load(SINGLE_FILE_DATASET)
     int_songs = convert_songs_to_int(songs)
@@ -205,15 +210,18 @@ def generating_training_seqeunces(sequence_length):
     # one hot encode the sequences
     # input: (# of sequences, sequence length)
     vocabulary_size = len(set(int_songs))
+    inputs = keras.utils.to_categorical(inputs, num_classes = vocabulary_size)
+    targets = np.array(targets)
 
-
-
-
-
+    return inputs, targets
 
 def main():
     preprocess(KERN_DATASET_PATH)
     songs = create_single_file_dataset(SAVE_DIR, SINGLE_FILE_DATASET, SEQUENCE_LENGTH)
     create_mapping(songs, MAPPING_PATH)
+    inputs, targets = generate_training_seqeunces(SEQUENCE_LENGTH)
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    main()
+
+
